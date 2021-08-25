@@ -11,7 +11,7 @@
 #Step6 - Upon hitting a paddle, paddle that we control must switch
 #Step7 - If the Ball hits coordinates beyond the paddle, reset and score += 1 for the paddle we're controlling
 #Step8 - If we hit 10 points or whatever, display PlayerX wins, do you wanna play again etc.
-
+#Step9 - Get rid of print statements everywhere
 
 
 from tkinter import Tk, Canvas, IntVar, Label, Frame
@@ -97,11 +97,12 @@ class Pong:
                                                  (Pong.WIDTH / 2) + 25,
                                                  (Pong.HEIGHT / 2) + 25,
                                                  fill = "white")
+        self.pong_width = self.canvas.bbox(self.pong_ball)[2] - self.canvas.bbox(self.pong_ball)[0]
+        self.pong_height = self.canvas.bbox(self.pong_ball)[3] - self.canvas.bbox(self.pong_ball)[1]
 
         ### List of both of our paddle objects. We choose one of our paddles as the starting point
         self.paddle_list = [self.paddle_Right, self.paddle_Left]
         self.current_paddle = next(cycle(self.paddle_list))
-        print(self.current_paddle)
 
         ### Define coordinates to track
         self.Right_Coords = self.canvas.coords(self.paddle_Right)
@@ -121,19 +122,25 @@ class Pong:
         ### Select Movement. Use lambda to get arguments into the function. Arg1 = the current paddle.
         ### Arg2 = Current paddle's coordinates as a list
 
-        Thread(target=self.ball_movement).start()
-
         while True:
+            self.ball_movement()
             self.window.bind("<Up>",lambda event, a=self.current_paddle, b=self.canvas.coords(self.current_paddle): self.move_up(event,a,b))
             self.window.bind("<Down>",lambda event, a=self.current_paddle, b=self.canvas.coords(self.current_paddle): self.move_down(event,a,b))
             self.window.update()
-            sleep(0.1)
+
 
     def ball_movement(self):
-        while True:
-            self.canvas.move(self.pong_ball,Pong.xVelocity,Pong.yVelocity)
-            self.window.update() # Update the window for any changes
-            sleep(0.01)          # The thread will then pause for 0.01 sec
+        coordinates = self.canvas.coords(self.pong_ball)                # Gets the coordinates of pong ball
+
+
+        if coordinates[0] >= (Pong.WIDTH - self.pong_width) or coordinates[0] <= -1:
+            Pong.xVelocity = Pong.xVelocity * -1
+        if coordinates[1] >= (Pong.HEIGHT - self.pong_height) or coordinates[1] <= -1:
+            Pong.yVelocity = Pong.yVelocity * -1
+
+        self.canvas.move(self.pong_ball,Pong.xVelocity,Pong.yVelocity)
+        self.window.update() # Update the window for any changes
+        sleep(0.01)          # The thread will then pause for 0.01 sec
 
 
 
@@ -199,16 +206,6 @@ class Pong:
             #     self._spawn_body("up")
             #     self.scorevar.set(self._increment_score(self.score))
 
-class Ball(Pong):
-    def __init__(self):
-        super().__init__()
-        self.ball_movement()
-
-    def ball_movement(self):
-        while True:
-            self.canvas.move(self.pong_ball,Pong.xVelocity,Pong.yVelocity)
-            self.window.update() # Update the window for any changes
-            sleep(0.01)          # The thread will then pause for 0.01 sec
 
 if __name__ == '__main__':
     game1 = Pong()
