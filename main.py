@@ -6,12 +6,10 @@
 
 #Step3 - Check coordinates and move paddle to opposite ends if outside of boundary                                - Done
 #Step3 - Define Start Game Button
-#Step4 - Define the ball's initial movement when the game starts. Likely needs separate thread
-#Step5 - Define the ball's bounce off the paddle in a specific direction if it hits the paddle or the boundary
-#Step6 - Upon hitting a paddle, paddle that we control must switch
-#Step7 - If the Ball hits coordinates beyond the paddle, reset and score += 1 for the paddle we're controlling
-#Step8 - If we hit 10 points or whatever, display PlayerX wins, do you wanna play again etc.
-#Step9 - Get rid of print statements everywhere
+#Step4 - Define the ball's initial movement when the game starts. Likely needs separate thread                    - Done
+#Step5 - Define the ball's bounce off the paddle in a specific direction if it hits the paddle or the boundary    - Done
+#Step6 - Upon hitting a paddle, paddle that we control must switch                                                - Done
+#Step7 - If the Ball hits coordinates beyond the paddle, reset and score += 1 for the paddle we're controlling    - Done
 
 
 from tkinter import Tk, Canvas, IntVar, Label, Frame
@@ -19,9 +17,7 @@ from itertools import cycle
 from time import sleep
 from functools import wraps
 from random import uniform
-from secrets import choice
-from threading import Thread
-from multiprocessing import Process
+
 
 class Pong:
 
@@ -30,10 +26,10 @@ class Pong:
     WIDTH = 600
     HEIGHT = 550
 
-    #### Defines velocities for ball. We want X velocity to always be a decent speed, otherwise the ball might take forever
-    #### to hit one end, so xvelocity will be 2 or -2. Y velocity doesn't really matter as much in terms of speed, so we
+    #### Defines velocities for ball. We want X velocity to always be postive because right paddle starts,
+    #### so xvelocity will be 2. Y velocity doesn't really matter as much in terms of speed, so we
     #### can give it some good randomness
-    xVelocity = choice([2,-2])
+    xVelocity = 3
     yVelocity = uniform(-3,3)
 
 
@@ -61,9 +57,9 @@ class Pong:
                                 bg = 'white',padx = 120)
 
         self.Right_Score = 0
-        self.Right_score_Var = IntVar()
+        self.Right_Score_Var = IntVar()
         self.Label_Right = Label(self.frame_score_reset_start,
-                                 textvariable = self.Left_Score_Var,
+                                 textvariable = self.Right_Score_Var,
                                  font=('consolas',30),
                                  bg = 'white',padx = 120)
 
@@ -97,6 +93,7 @@ class Pong:
                                                  (Pong.WIDTH / 2) + 25,
                                                  (Pong.HEIGHT / 2) + 25,
                                                  fill = "white")
+
         self.pong_width = self.canvas.bbox(self.pong_ball)[2] - self.canvas.bbox(self.pong_ball)[0]
         self.pong_height = self.canvas.bbox(self.pong_ball)[3] - self.canvas.bbox(self.pong_ball)[1]
 
@@ -109,14 +106,46 @@ class Pong:
         self.Left_Coords = self.canvas.coords(self.paddle_Left)
 
 
+    def _increment_score(self,paddle):
+        if paddle == 1:
+            self.Left_Score = (self.Left_Score + 1)
+            return self.Left_Score
+        elif paddle == 2:
+            self.Right_Score = (self.Right_Score + 1)
+            return self.Right_Score
+
+
     def _check_coord(func):
         @wraps(func)
         def wrapper(self,*args,**kwargs):
-            print(self.Right_Coords)
-            print(self.Left_Coords)
+            print(self.canvas.coords(self.current_paddle))
             func(self,*args,**kwargs)
         return wrapper
 
+
+    def _check_collision(func):
+        @wraps(func)
+        def wrapper(self,*args,**kwargs):
+            if self.current_paddle == 2:
+
+                if (self.canvas.bbox(self.current_paddle)[3] + 25 > self.canvas.bbox(self.pong_ball)[3] > self.canvas.bbox(self.current_paddle)[1])\
+                and (self.canvas.bbox(self.pong_ball)[2] > 570):
+
+                    Pong.xVelocity = Pong.xVelocity * -1
+                    self.current_paddle = self.paddle_Left
+
+            elif self.current_paddle == 1:
+
+                if (self.canvas.bbox(self.current_paddle)[3] + 25 > self.canvas.bbox(self.pong_ball)[3] > self.canvas.bbox(self.current_paddle)[1])\
+                and (self.canvas.bbox(self.pong_ball)[0] < 30):
+
+                    Pong.xVelocity = Pong.xVelocity * -1
+                    self.current_paddle = self.paddle_Right
+
+
+            func(self,*args,**kwargs)
+
+        return wrapper
 
     def main(self):
         ### Select Movement. Use lambda to get arguments into the function. Arg1 = the current paddle.
@@ -128,20 +157,31 @@ class Pong:
             self.window.bind("<Down>",lambda event, a=self.current_paddle, b=self.canvas.coords(self.current_paddle): self.move_down(event,a,b))
             self.window.update()
 
-
+    @_check_collision
     def ball_movement(self):
         coordinates = self.canvas.coords(self.pong_ball)                # Gets the coordinates of pong ball
 
+        if coordinates[0] >= (Pong.WIDTH - self.pong_width) or coordinates[0] <= -1: # If collision behind the paddle, increment and reset
+            if self.current_paddle == 1:
+                self.Left_Score_Var.set(self._increment_score(self.current_paddle))
+            elif self.current_paddle == 2:
+                self.Right_Score_Var.set(self._increment_score(self.current_paddle))
 
-        if coordinates[0] >= (Pong.WIDTH - self.pong_width) or coordinates[0] <= -1:
-            Pong.xVelocity = Pong.xVelocity * -1
-        if coordinates[1] >= (Pong.HEIGHT - self.pong_height) or coordinates[1] <= -1:
+            self.canvas.coords(self.pong_ball,(Pong.WIDTH / 2),                     # Reset ball location
+                               (Pong.HEIGHT / 2),
+                               (Pong.WIDTH / 2) + 25,
+                               (Pong.HEIGHT / 2) + 25,)
+
+        if coordinates[1] >= (Pong.HEIGHT - self.pong_height) or coordinates[1] <= -1: # Bouncing off the top/bottom canvas
             Pong.yVelocity = Pong.yVelocity * -1
 
         self.canvas.move(self.pong_ball,Pong.xVelocity,Pong.yVelocity)
         self.window.update() # Update the window for any changes
         sleep(0.01)          # The thread will then pause for 0.01 sec
 
+
+    def switch_paddle(self):
+        self.current_paddle = self.paddle_Left
 
 
     ################ Main movement functions ################
@@ -190,21 +230,22 @@ class Pong:
 
 ### If we move the paddle to boundary, we swap positions to the top
     def _check_boundry(self,paddle,coodinates):
-        if coodinates[1] == -55:
-            self.canvas.coords(paddle,565,545,580,600)
+        if paddle == 2:
+            if coodinates[1] == -55:
+                self.canvas.coords(paddle,565,545,580,600)
 
-        elif coodinates[3] == 615:
-            self.canvas.coords(paddle,565,-40,580,15)
+            elif coodinates[3] == 615:
+                self.canvas.coords(paddle,565,-40,580,15)
+
+        if paddle == 1:
+            if coodinates[1] == -55:
+                self.canvas.coords(paddle,20,545,35,600)
+
+            elif coodinates[3] == 615:
+                self.canvas.coords(paddle,20,-40,35,15)
 
         self.window.update()
 
-
-
-            # #### Check if collision, which will return a boolean. If True, grow the snake, spawn another food, increment score
-            # if self._check_collision(self.canvas.bbox(self.snakehead),self.canvas.bbox(self.food)):
-            #     self._food_relocate()
-            #     self._spawn_body("up")
-            #     self.scorevar.set(self._increment_score(self.score))
 
 
 if __name__ == '__main__':
